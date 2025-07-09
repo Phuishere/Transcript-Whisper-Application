@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transcript-asr-demo"
+version = "1.0.0"
+dependencies = [
+    "ViStreamASR==0.1.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["./ViStreamASR/src"]
+include = ["ViStreamASR*"]
+
+[tool.setuptools.package-dir]
+ViStreamASR = "./ViStreamASR/src"
