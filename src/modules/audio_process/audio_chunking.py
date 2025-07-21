@@ -1,7 +1,7 @@
 import os
 from pydub import AudioSegment
 
-def chunk_wav_to_files(input_path: str, output_dir: str, chunk_seconds: int = 5):
+def chunk_wav_to_files(input_path: str, output_dir: str, chunk_seconds: int = 5) -> list:
     audio = AudioSegment.from_wav(input_path)
     duration_ms = len(audio)
     chunk_ms = chunk_seconds * 1000
@@ -10,6 +10,7 @@ def chunk_wav_to_files(input_path: str, output_dir: str, chunk_seconds: int = 5)
 
     num_chunks = (duration_ms + chunk_ms - 1) // chunk_ms # round up
 
+    out_paths = []
     for i in range(num_chunks):
         # Process and export to files in output directory
         start_ms = i * chunk_ms
@@ -18,12 +19,13 @@ def chunk_wav_to_files(input_path: str, output_dir: str, chunk_seconds: int = 5)
         out_path = os.path.join(output_dir, f"chunk_{i:04d}.wav")
         audio_chunk.export(out_path, format="wav")
         
-        # Process audio chunks directly
-        # result = engine.process_audio(audio_chunk, is_last=False)
+        # Append file
+        out_paths.append(out_path)
 
         # Print out the results
         print(f"({(end_ms - start_ms)/1000:.2f}s)")
         print("\n\n=================================\n\n")
+    return out_paths
 
 if __name__ == "__main__":
     chunk_wav_to_files("audio.wav", "output_chunks", chunk_seconds=5)

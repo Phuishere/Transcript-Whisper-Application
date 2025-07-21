@@ -209,6 +209,8 @@ __marimo__/
 # Resources
 **/**.mp3
 **/**.wav
+**/temp/**
+**/**.pt
 
 # Database
 **.db
