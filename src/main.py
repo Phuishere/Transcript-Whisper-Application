@@ -3,7 +3,6 @@ from ast import literal_eval
 import shutil
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-import pandas as pd
 import requests
 import json
 import re
@@ -164,7 +163,6 @@ def process_audio():
         
         # Get current time
         current_time = time.ctime(time.time()).replace(":", "-").replace(" ", "-")
-        current_time = current_time.split("-")[::-1]
 
         # Get temp dir and log
         log_path = log_path_sv.get()
@@ -209,7 +207,7 @@ def process_audio():
         elif filename.endswith(".wav"):
             try:
                 shutil.copyfile(filename, dst = log["main_wav_path"])
-                print(f"File copied from '{filename}' to '{log["main_wav_path"]}' successfully.")
+                print(f"File copied from {filename} to {log['main_wav_path']} successfully.")
             except FileNotFoundError:
                 print(f"Error: Source file '{filename}' not found.")
             except Exception as e:
@@ -260,7 +258,7 @@ def process_audio():
 
     # Show progress bar and download status
     progress_bar['maximum'] = len(log["chunk_path"])
-    progress_label['text'] = f"Transcripting 0/{len(log["chunk_path"])} audio files..."
+    progress_label['text'] = f"Transcripting 0/{len(log['chunk_path'])} audio files..."
     remaining_time_label['text'] = "Remaining time: estimating..."
     mean_speed_label['text'] = "Mean speed: 0 chunk/s"
     latency_label['text'] = "Mean latency: 0 s/chunk"
@@ -283,7 +281,7 @@ def process_audio():
 
                 # Calculate mean speed in Mbit/s
                 mean_speed = total_size / total_time if total_time > 0 else 0
-                mean_speed_label['text'] = f"Mean speed  : {mean_speed:.2f} chunk/s ({log["interval_s"]}s per chunk)"
+                mean_speed_label['text'] = f"Mean speed  : {mean_speed:.2f} chunk/s ({log['interval_s']}s per chunk)"
                 latency_label['text']    = f"Mean latency: {1/mean_speed:.2f} s/chunk"
 
                 # Get chunk start time and end time
@@ -294,7 +292,7 @@ def process_audio():
                 chunk_start_s = int(chunk_start - chunk_start_min * 60)
                 
                 # Get the time interval and concate string
-                time_interval_str = f"# [{chunk_start_min}:{chunk_start_s}] - "
+                time_interval_str = f"# [{chunk_start_min}:{chunk_start_s:02d}] - "
                 output = time_interval_str + result["text"] + "\n\n"
 
                 # Get output path
@@ -330,7 +328,7 @@ def process_audio():
             with open(log["log_path"], "w", encoding="utf-8") as file:
                 json.dump(log, file)
             progress_bar['value'] = log["progress"]
-            progress_label['text'] = f"Transcripting {log["progress"]}/{len(log["chunk_path"])} audio files..."
+            progress_label['text'] = f"Transcripting {log['progress']}/{len(log['chunk_path'])} audio files..."
 
             # Estimate remaining time
             current_time = time.time()
@@ -353,7 +351,8 @@ def process_audio():
     threading.Thread(target=transcript).start()
 
 if __name__ == "__main__":
-    # Init UI and model
+    # Initialization
+    os.makedirs("./src/temp", exist_ok=True)
     build_ui()
 
     # Main loop
