@@ -1,5 +1,5 @@
 import os
-from ast import literal_eval
+import sys
 import shutil
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -15,6 +15,25 @@ import whisper
 from modules.audio_process import mp3_to_wav, chunk_wav_to_files
 
 # Utils function
+def get_base():
+    try:
+        base = sys._MEIPASS
+    except AttributeError:
+        base = os.path.abspath(".")
+    return base
+BASE = get_base()
+TEMP_CONTAINER_DIR = os.path.join(BASE, "src/temp")
+
+def get_ffmpeg_paths():
+    return {
+        "converter": os.path.join(BASE, "src/ffmpeg/ffmpeg.exe"),
+        "ffprobe": os.path.join(BASE, "src/ffmpeg/ffprobe.exe"),
+        "ffmpeg": os.path.join(BASE, "src/ffmpeg/ffmpeg.exe")
+    }
+ffmpeg_paths = get_ffmpeg_paths()
+AudioSegment.converter = ffmpeg_paths["converter"]
+AudioSegment.ffmpeg = ffmpeg_paths["ffmpeg"]
+
 def get_subdirs(path) -> list:
     try:
         return [
@@ -28,7 +47,7 @@ def get_subdirs(path) -> list:
 global model
 model = None
 def load_model():
-    global progress_label, transcript_btn, model
+    global progress_label, transcript_btn, model, root
     if not model:
         # UI update
         progress_label.config(text="⏳ Model loading!")
@@ -36,12 +55,17 @@ def load_model():
 
         # Load model and count the time
         start = time.time()
-        model = whisper.load_model("large-v3-turbo", download_root="./src/resource")
+        download_root = os.path.join(BASE, "src/resource")
+        model = whisper.load_model("large-v3-turbo", download_root=download_root)
         end = time.time()
 
-        # Print out
-        progress_label.config(text=f"✅ Model loaded ({round(end - start, 2)}s)!")
-        transcript_btn.config(state = tk.ACTIVE)
+        args = (start, end)
+        root.after(0, on_loaded_model, *args)
+
+def on_loaded_model(start, end):
+    # Print out
+    progress_label.config(text=f"✅ Model loaded ({round(end - start, 2)}s)!")
+    transcript_btn.config(state = tk.ACTIVE)
 
 # Create the main window
 def build_ui():
@@ -77,7 +101,7 @@ def build_ui():
 
     # UI: Saved Directory selection (dropdown)
     tk.Label(root, text="Select a save in progress").grid(row=1, column=0, padx=10, pady=10)
-    saved_dirs_sv.set(get_subdirs("./src/temp"))
+    saved_dirs_sv.set(get_subdirs(TEMP_CONTAINER_DIR))
     dropdown = ttk.Combobox(root, width=40, textvariable=selected_dir_sv, values=saved_dirs_sv.get(), state="readonly")
     dropdown.grid(row=1, column=1, padx=20, pady=20, sticky="w")
     dropdown.bind("<<ComboboxSelected>>", on_dropdown_select)
@@ -149,10 +173,12 @@ def process_audio():
 
     # Only one of the two is chosen
     filename = input_path_sv.get()
-    selected_dir = os.path.join("./src/temp", selected_dir_sv.get()) # It's shortenned for ease of access
+    selected_dir = selected_dir_sv.get() # It's shortenned for ease of access
 
     # If selected_dir, then log_path is not initialized
     if selected_dir:
+        selected_dir = os.path.join(TEMP_CONTAINER_DIR, selected_dir_sv.get()) # It's shortenned for ease of access
+        selected_dir_sv.set(selected_dir) 
         log_path = os.path.join(selected_dir, "log.json")
     else:
         log_path = log_path_sv.get()
@@ -167,7 +193,7 @@ def process_audio():
         # Get temp dir and log
         log_path = log_path_sv.get()
         temp_dir = filename.split("/")[-1].split(".")[0] + "-" + current_time
-        temp_dir = os.path.join("./src/temp", temp_dir)
+        temp_dir = os.path.join(TEMP_CONTAINER_DIR, temp_dir)
         if not log_path:
             log_path = os.path.join(temp_dir, "log.json")
             log_path_sv.set(log_path)
@@ -313,6 +339,12 @@ def process_audio():
                     with open(temp_output, 'x', encoding="utf-8") as handler:
                         handler.write(output)
                 except Exception as e:
+                    with open(temp_output, 'w', encoding="utf-8") as handler:
+                        handler.write(output)
+                try:
+                    with open(output_txt_path, 'x', encoding="utf-8") as handler:
+                        handler.write(output)
+                except Exception as e:
                     with open(output_txt_path, 'w', encoding="utf-8") as handler:
                         handler.write(output)
                 
@@ -327,18 +359,12 @@ def process_audio():
             log["progress"] = log["progress"] + 1
             with open(log["log_path"], "w", encoding="utf-8") as file:
                 json.dump(log, file)
-            progress_bar['value'] = log["progress"]
-            progress_label['text'] = f"Transcripting {log['progress']}/{len(log['chunk_path'])} audio files..."
-
+            
             # Estimate remaining time
             current_time = time.time()
             elapsed_total_time = current_time - start_time
-            if i - starting_num + 1 > 0:
-                avg_time_per_audio = elapsed_total_time / (i - starting_num + 1)
-                remaining_time = avg_time_per_audio * (len(log["chunk_path"]) - (i - starting_num + 1))
-                remaining_time_label['text'] = f"Remaining time: {remaining_time:.2f}s"
-            else:
-                remaining_time_label['text'] = "Remaining time: estimating..."
+            args = (log, elapsed_total_time, i, starting_num)
+            root.after(0, update_progress, *args)
 
         # Inform the user of completion
         messagebox.showinfo("Success", "Audio files have been processed successfully.")
@@ -346,13 +372,26 @@ def process_audio():
         progress_label['text'] = ""
         remaining_time_label['text'] = ""
         mean_speed_label['text'] = ""
+        latency_label['text'] = ""
 
     # Run the process function in a separate thread
     threading.Thread(target=transcript).start()
 
+def update_progress(log, elapsed_total_time, i, starting_num):
+    progress_bar['value'] = log["progress"]
+    progress_label['text'] = f"Transcripting {log['progress']}/{len(log['chunk_path'])} audio files..."
+
+    if i - starting_num + 1 > 0:
+        avg_time_per_audio = elapsed_total_time / (i - starting_num + 1)
+        remaining_time = avg_time_per_audio * (len(log["chunk_path"]) - (i - starting_num + 1))
+        remaining_time_label['text'] = f"Remaining time: {remaining_time:.2f}s"
+    else:
+        remaining_time_label['text'] = "Remaining time: estimating..."
+
 if __name__ == "__main__":
     # Initialization
-    os.makedirs("./src/temp", exist_ok=True)
+    global root
+    os.makedirs(TEMP_CONTAINER_DIR, exist_ok=True)
     build_ui()
 
     # Main loop

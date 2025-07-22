@@ -211,6 +211,7 @@ __marimo__/
 **/**.wav
 **/temp/**
 **/**.pt
+**/**.exe
 
 # Database
 **.db
