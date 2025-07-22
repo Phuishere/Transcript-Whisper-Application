@@ -4,5 +4,5 @@
 - The setting up is straight forward: ```pip install -r requirements.txt```
 - To package the file (icon is from ChatGPT):
 ```
-pyinstaller --add-data "src/resource;src/resource" --add-data "src/temp;src/temp" --noconfirm --onefile --windowed src/main.py
+pyinstaller --add-data "src/resource;src/resource" --add-data "src/temp;src/temp" --icon="src/resource/icon.ico" --noconfirm --onefile --windowed src/main.py
 ```
