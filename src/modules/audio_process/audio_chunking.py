@@ -21,10 +21,6 @@ def chunk_wav_to_files(input_path: str, output_dir: str, chunk_seconds: int = 5)
         
         # Append file
         out_paths.append(out_path)
-
-        # Print out the results
-        print(f"({(end_ms - start_ms)/1000:.2f}s)")
-        print("\n\n=================================\n\n")
     return out_paths
 
 if __name__ == "__main__":

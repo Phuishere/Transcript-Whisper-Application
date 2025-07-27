@@ -4,9 +4,13 @@
 - The setting up is straight forward: ```pip install -r requirements.txt```
 - To package the file (icon is from ChatGPT):
 ```
-pyinstaller --hidden-import pydub --hidden-import librosa --add-data "src/resource;src/resource" --add-data "src/temp;src/temp" --add-binary "src/ffmpeg/ffmpeg.exe;src/ffmpeg/ffmpeg.exe" --add-binary "src/ffmpeg/ffprobe.exe;src/ffmpeg/ffprobe.exe" --icon="src/resource/icon.ico" --noconfirm --onedir --noconsole --windowed src/main.py
+pyinstaller --hidden-import pydub --hidden-import librosa --add-data "src/resource;src/resource" --add-data "src/modules;modules" --add-data "src\resource\temp;src\resource\temp" --icon="src/resource/icon.ico" --noconfirm --onedir --noconsole --windowed src/main.py
 ```
-- Get file ffmpeg.exe and ffprobe.exe and put it into src/ffmpeg.
+- Include Whisper library if necessary:
+```
+--add-data "venv\Lib\site-packages\whisper;whisper"
+```
+- Include chocolatey in ```src/resource``` to have it in the bundled folder of pyinstaller
 - Run this ?
 ```
 --exclude-module pyinstaller

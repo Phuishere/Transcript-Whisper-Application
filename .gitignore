@@ -212,6 +212,7 @@ __marimo__/
 **/temp/**
 **/**.pt
 **/**.exe
+**/chocolatey/
 
 # Database
 **.db

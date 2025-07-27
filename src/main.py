@@ -9,30 +9,29 @@ import re
 import threading
 import time
 
+# Path functions
+def get_base():
+    # If in packaged mode (main/main.exe; main/_internal)
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return sys._MEIPASS
+    elif getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    
+    # Else, if in development mode (./src/main)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+BASE = get_base()
+TEMP_CONTAINER_DIR = os.path.join(BASE, "src/resource/temp")
+os.environ['PATH'] = os.path.join(BASE, "src/resource/chocolatey") + os.pathsep + os.environ.get('PATH', '') # Optionally update PATH
+os.environ['PATH'] = os.path.join(BASE, "src/resource/chocolatey/bin") + os.pathsep + os.environ.get('PATH', '') # Optionally update PATH
+
 from pydub import AudioSegment
 import whisper
 
 from modules.audio_process import mp3_to_wav, chunk_wav_to_files
 
-# Utils function
-def get_base():
-    try:
-        base = sys._MEIPASS
-    except AttributeError:
-        base = os.path.abspath(".")
-    return base
-BASE = get_base()
-TEMP_CONTAINER_DIR = os.path.join(BASE, "src/temp")
-
-def get_ffmpeg_paths():
-    return {
-        "converter": os.path.join(BASE, "src/ffmpeg/ffmpeg.exe"),
-        "ffprobe": os.path.join(BASE, "src/ffmpeg/ffprobe.exe"),
-        "ffmpeg": os.path.join(BASE, "src/ffmpeg/ffmpeg.exe")
-    }
-ffmpeg_paths = get_ffmpeg_paths()
-AudioSegment.converter = ffmpeg_paths["converter"]
-AudioSegment.ffmpeg = ffmpeg_paths["ffmpeg"]
+AudioSegment.converter = os.path.join(BASE, "src/resource/chocolatey/bin")
+AudioSegment.ffmpeg = os.path.join(BASE, "src/resource/chocolatey/bin")
 
 def get_subdirs(path) -> list:
     try:
@@ -219,7 +218,6 @@ def process_audio():
             try:
                 with open(log_path, 'r', encoding="utf-8") as file:
                     log = json.load(file)
-                print("Data loaded successfully:", log)
             except FileNotFoundError as e:
                 raise Exception(e)
             except json.JSONDecodeError as e:
@@ -228,7 +226,6 @@ def process_audio():
             
         # Convert or save file main.wav if necessary
         if filename.endswith(".mp3"):
-            print(log)
             mp3_to_wav(filename, wav_path = log["main_wav_path"])
         elif filename.endswith(".wav"):
             try:
@@ -246,7 +243,13 @@ def process_audio():
             duration_ms = len(audio)
 
             if duration_ms > 30 * 1000:
-                chunk_files = chunk_wav_to_files(log["main_wav_path"], output_dir=temp_dir, chunk_seconds=30)
+                chunk_files = chunk_wav_to_files(
+                    log["main_wav_path"],
+                    output_dir=temp_dir,
+                    chunk_seconds=30
+                )
+                progress_bar['value'] = 0
+                progress_label['text'] = f"Transcripting 0/{len(log['chunk_path'])} audio files..."
                 log["chunk_path"] = chunk_files
             else:
                 log["chunk_path"] = [log["main_wav_path"]]
@@ -353,7 +356,7 @@ def process_audio():
                     shutil.copyfile(temp_output, output_txt_path)
 
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to transcript {audio_file}: {e}")
+                messagebox.showerror("Error", f"Failed to transcript {audio_file}: {e}\n\nLog: {log}")
 
             # Update progress
             log["progress"] = log["progress"] + 1
@@ -390,9 +393,12 @@ def update_progress(log, elapsed_total_time, i, starting_num):
 
 if __name__ == "__main__":
     # Initialization
-    global root
-    os.makedirs(TEMP_CONTAINER_DIR, exist_ok=True)
-    build_ui()
+    try:
+        global root
+        os.makedirs(TEMP_CONTAINER_DIR, exist_ok=True)
+        build_ui()
 
-    # Main loop
-    root.mainloop()
+        # Main loop
+        root.mainloop()
+    except KeyboardInterrupt:
+        sys.exit()
